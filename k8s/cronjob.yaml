@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: clopus-watcher
+  namespace: clopus-watcher
+spec:
+  schedule: "*/5 * * * *"  # Every 5 minutes
+  concurrencyPolicy: Forbid  # Don't run if previous job still running
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0  # Don't retry failed jobs
+      ttlSecondsAfterFinished: 300  # Clean up after 5 minutes
+      template:
+        spec:
+          serviceAccountName: clopus-watcher
+          restartPolicy: Never
+          containers:
+            - name: watcher
+              image: ghcr.io/kubeden/clopus-watcher:latest
+              imagePullPolicy: Always
+              env:
+                - name: TARGET_NAMESPACE
+                  value: "default"  # Change this to target namespace
+                - name: SQLITE_PATH
+                  value: "/data/watcher.db"
+                - name: HOME
+                  value: "/home/claude"
+                # AUTH_MODE: "api-key" (default) or "credentials"
+                - name: AUTH_MODE
+                  value: "api-key"
+                # Option 1: API Key auth (AUTH_MODE=api-key)
+                - name: ANTHROPIC_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: claude-auth
+                      key: api-key
+                      optional: true
+                # Option 2: Credentials auth (AUTH_MODE=credentials)
+                # Mount credentials.json via volumeMounts below
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: config
+                  mountPath: /config
+                # Uncomment for AUTH_MODE=credentials
+                # - name: claude-credentials
+                #   mountPath: /secrets
+                #   readOnly: true
+              resources:
+                requests:
+                  memory: "256Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "1Gi"
+                  cpu: "500m"
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: watcher-data
+            - name: config
+              configMap:
+                name: watcher-config
+            # Uncomment for AUTH_MODE=credentials
+            # - name: claude-credentials
+            #   secret:
+            #     secretName: claude-credentials
