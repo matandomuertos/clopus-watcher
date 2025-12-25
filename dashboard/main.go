@@ -22,6 +22,11 @@ func main() {
 		port = "8080"
 	}
 
+	logPath := os.Getenv("LOG_PATH")
+	if logPath == "" {
+		logPath = "/data/watcher.log"
+	}
+
 	// Initialize database
 	database, err := db.New(sqlitePath)
 	if err != nil {
@@ -43,11 +48,12 @@ func main() {
 	partials := tmpl
 
 	// Create handler
-	h := handlers.New(database, tmpl, partials)
+	h := handlers.New(database, tmpl, partials, logPath)
 
 	// Routes
 	http.HandleFunc("/", h.Index)
 	http.HandleFunc("/fixes", h.Fixes)
+	http.HandleFunc("/logs", h.Logs)
 	http.HandleFunc("/health", h.Health)
 
 	log.Printf("Dashboard starting on port %s", port)

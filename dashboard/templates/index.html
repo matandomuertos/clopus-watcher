@@ -38,10 +38,30 @@
             </div>
         </div>
 
+        <!-- Live Watcher Log -->
+        <div class="mb-8">
+            <h2 class="text-lg font-bold mb-2">Live Watcher Output</h2>
+            <div id="log-container"
+                 class="bg-gray-900 text-gray-100 p-4 rounded font-mono text-xs h-64 overflow-y-auto"
+                 hx-get="/logs"
+                 hx-trigger="every 3s"
+                 hx-swap="innerHTML">
+                {{.Log}}
+            </div>
+        </div>
+
         <!-- Fixes Table -->
         <div id="fixes-container" hx-get="/fixes" hx-trigger="every 10s" hx-swap="innerHTML">
             {{template "fixes-table.html" .}}
         </div>
     </div>
+
+    <script>
+        // Auto-scroll log to bottom
+        const logContainer = document.getElementById('log-container');
+        new MutationObserver(() => {
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }).observe(logContainer, { childList: true });
+    </script>
 </body>
 </html>

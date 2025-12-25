@@ -65,6 +65,10 @@ PROMPT=$(echo "$PROMPT" | sed "s|\$SQLITE_PATH|$SQLITE_PATH|g")
 
 # === RUN CLAUDE ===
 echo "Starting Claude Code..."
-claude --dangerously-skip-permissions -p "$PROMPT"
 
-echo "=== Clopus Watcher Complete ==="
+# Write output to both console and log file for dashboard streaming
+LOG_FILE="/data/watcher.log"
+echo "=== Run started at $(date -Iseconds) ===" > "$LOG_FILE"
+claude --dangerously-skip-permissions -p "$PROMPT" 2>&1 | tee -a "$LOG_FILE"
+
+echo "=== Clopus Watcher Complete ===" | tee -a "$LOG_FILE"
