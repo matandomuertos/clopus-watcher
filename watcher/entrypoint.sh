@@ -69,6 +69,9 @@ echo "Starting Claude Code..."
 # Write output to both console and log file for dashboard streaming
 LOG_FILE="/data/watcher.log"
 echo "=== Run started at $(date -Iseconds) ===" > "$LOG_FILE"
-claude --dangerously-skip-permissions -p "$PROMPT" 2>&1 | tee -a "$LOG_FILE"
+
+# Use --verbose to show full tool calls and agent activity
+# Use --output-format stream-json for structured streaming output
+claude --dangerously-skip-permissions --verbose -p "$PROMPT" 2>&1 | tee -a "$LOG_FILE"
 
 echo "=== Clopus Watcher Complete ===" | tee -a "$LOG_FILE"
