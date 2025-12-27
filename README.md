@@ -1,55 +1,30 @@
 # Clopus Watcher
 
-A Kubernetes-native Claude Code watcher that monitors pods, detects errors, and applies hotfixes directly.
+A Kubernetes-native Claude Code watcher that monitors pods, detects errors, and applies hotfixes directly, or just writes a report on its findings.
 
 ## Overview
 
-Clopus Watcher runs as a CronJob (every 5 minutes) that:
+Clopus Watcher runs as a CronJob that:
 1. Monitors pods in a target namespace
 2. Detects degraded pods (CrashLoopBackOff, Error, etc.)
 3. Reads logs to understand the error
-4. Execs into the pod and fixes the issue directly
-5. Records the fix to SQLite
+4. Execs into the pod, explores and applies a hotfix
+5. Records the fix to SQLite & provides a report
 
 A separate Dashboard deployment provides a web UI to view all detected errors and applied fixes.
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      K8s Cluster                             │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │              clopus-watcher Namespace                   │ │
-│  │                                                         │ │
-│  │  ┌─────────────────────┐    ┌─────────────────────┐   │ │
-│  │  │  Claude Watcher     │    │  Dashboard          │   │ │
-│  │  │  (CronJob 5min)     │    │  (Deployment)       │   │ │
-│  │  │  - Claude Code CLI  │    │  - Go + HTMX        │   │ │
-│  │  │  - kubectl          │◄──►│  - Reads SQLite     │   │ │
-│  │  └─────────────────────┘    └─────────────────────┘   │ │
-│  │           │                          ▲                 │ │
-│  │           │ PVC (SQLite)             │                 │ │
-│  │           └──────────────────────────┘                 │ │
-│  └────────────────────────────────────────────────────────┘ │
-│              │                                               │
-│              │ kubectl exec                                  │
-│              ▼                                               │
-│  ┌─────────────────────────────────────────────────────────┐ │
-│  │              Target Namespace (configurable)            │ │
-│  │  ┌─────┐ ┌─────┐ ┌─────┐                              │ │
-│  │  │Pod A│ │Pod B│ │Pod C│  ← Claude execs in & fixes   │ │
-│  │  └─────┘ └─────┘ └─────┘                              │ │
-│  └─────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
-
 ## Prerequisites
 
+**Cluster:**
+
 - Kubernetes cluster
-- kubectl configured
-- Sealed Secrets controller (for API key)
-- Container registry access
+- Sealed Secrets (for API key / Claude Code Credentials file)
+
+**Local (to build the images):**
+
+- podman / docker / etc.
+- kubectl
+- container registry access
 
 ## Configuration
 
@@ -57,6 +32,7 @@ A separate Dashboard deployment provides a web UI to view all detected errors an
 |---------------------|-------------|---------|
 | `TARGET_NAMESPACE` | Namespace to monitor | `default` |
 | `AUTH_MODE` | Auth method: `api-key` or `credentials` | `api-key` |
+| `WATCHER_MODE` | Watcher mode: `autonomous` or `watcher` | `autonomous` |
 | `ANTHROPIC_API_KEY` | Claude API key (if AUTH_MODE=api-key) | - |
 | `SQLITE_PATH` | Path to SQLite database | `/data/watcher.db` |
 
@@ -97,19 +73,3 @@ kubectl create secret generic claude-credentials \
 # 4. Deploy
 ./scripts/deploy.sh
 ```
-
-## Components
-
-### Watcher (CronJob)
-- Runs every 5 minutes
-- Uses Claude Code CLI to analyze and fix pods
-- Writes fixes to shared SQLite database
-
-### Dashboard (Deployment)
-- Always running web UI
-- Shows all detected errors and applied fixes
-- Auto-updates via HTMX polling
-
-## License
-
-MIT - See LICENSE file
