@@ -13,9 +13,12 @@ spec:
       labels:
         app: dashboard
     spec:
+      # Uncomment if using private registry:
+      # imagePullSecrets:
+      #   - name: regcred
       containers:
         - name: dashboard
-          image: ghcr.io/kubeden/clopus-watcher-dashboard:v0.1
+          image: ghcr.io/kubeden/clopus-watcher-dashboard:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -24,6 +27,8 @@ spec:
               value: "/data/watcher.db"
             - name: PORT
               value: "8080"
+            - name: LOG_PATH
+              value: "/data/watcher.log"
           volumeMounts:
             - name: data
               mountPath: /data

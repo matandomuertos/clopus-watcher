@@ -16,13 +16,27 @@ spec:
         spec:
           serviceAccountName: clopus-watcher
           restartPolicy: Never
+          # Uncomment if using private registry:
+          # imagePullSecrets:
+          #   - name: regcred
+          initContainers:
+            - name: fix-permissions
+              image: busybox
+              command: ["sh", "-c", "chmod -R 777 /data"]
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+              securityContext:
+                runAsUser: 0
           containers:
             - name: watcher
-              image: ghcr.io/kubeden/clopus-watcher:v0.1
+              image: ghcr.io/kubeden/clopus-watcher:latest
               imagePullPolicy: Always
               env:
                 - name: TARGET_NAMESPACE
-                  value: "default"  # Change this to target namespace
+                  value: "default"  # Namespace to monitor
+                - name: WATCHER_MODE
+                  value: "autonomous"  # "autonomous" (fix issues) or "report" (report only)
                 - name: SQLITE_PATH
                   value: "/data/watcher.db"
                 - name: HOME
@@ -42,7 +56,7 @@ spec:
               volumeMounts:
                 - name: data
                   mountPath: /data
-                # Uncomment for AUTH_MODE=credentials
+                # Uncomment for AUTH_MODE=credentials:
                 # - name: claude-credentials
                 #   mountPath: /secrets
                 #   readOnly: true
@@ -57,7 +71,7 @@ spec:
             - name: data
               persistentVolumeClaim:
                 claimName: watcher-data
-            # Uncomment for AUTH_MODE=credentials
+            # Uncomment for AUTH_MODE=credentials:
             # - name: claude-credentials
             #   secret:
             #     secretName: claude-credentials
