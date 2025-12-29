@@ -1,4 +1,4 @@
-name: PR Dockerfile Tests
+name: PR Dockerfile and Helm Tests
 
 on:
   pull_request:
@@ -9,7 +9,6 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -30,6 +29,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.2
+
+      - name: Helm lint
+        run: helm lint charts/clopus-watcher
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

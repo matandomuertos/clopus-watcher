@@ -1,10 +1,9 @@
-name: Release Images
+name: Release Images and Helm Chart
 
 on:
   push:
     tags:
       - "*"
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -47,3 +46,38 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:${{ github.ref_name }}
             ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:latest
           provenance: false
+
+  publish-chart:
+    name: Package and publish Helm chart
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Determine chart metadata
+        id: meta
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          OWNER="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "owner=$OWNER" >> "$GITHUB_OUTPUT"
+
+      - name: Package Helm chart
+        run: |
+          mkdir -p dist
+          helm package charts/clopus-watcher \
+            --version "${{ steps.meta.outputs.version }}" \
+            --app-version "${GITHUB_REF_NAME}" \
+            --destination dist
+
+      - name: Log in to GHCR for Helm
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Push Helm chart to GHCR
+        run: |
+          helm push dist/clopus-watcher-${{ steps.meta.outputs.version }}.tgz \
+            oci://ghcr.io/${{ steps.meta.outputs.owner }}/charts

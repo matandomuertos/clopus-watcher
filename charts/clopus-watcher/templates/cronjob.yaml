@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "clopus-watcher.fullname" . }}
+  labels:
+    {{- include "clopus-watcher.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronJob.schedule | quote }}
+  concurrencyPolicy: {{ .Values.cronJob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ .Values.cronJob.backoffLimit }}
+      {{- if .Values.cronJob.ttlSecondsAfterFinished }}
+      ttlSecondsAfterFinished: {{ .Values.cronJob.ttlSecondsAfterFinished }}
+      {{- end }}
+      template:
+        metadata:
+          labels:
+            {{- include "clopus-watcher.selectorLabels" . | nindent 12 }}
+        spec:
+          serviceAccountName: {{ include "clopus-watcher.serviceAccountName" . }}
+          restartPolicy: Never
+          {{- if .Values.imagePullSecrets }}
+          imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 12 }}
+          {{- end }}
+          {{- if and .Values.cronJob.initContainers.fixPermissions.enabled .Values.persistence.enabled }}
+          initContainers:
+            - name: fix-permissions
+              image: {{ .Values.cronJob.initContainers.fixPermissions.image }}
+              command:
+{{ toYaml .Values.cronJob.initContainers.fixPermissions.command | indent 16 }}
+              {{- if .Values.persistence.enabled }}
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+              {{- end }}
+              securityContext:
+                runAsUser: 0
+          {{- end }}
+          containers:
+            - name: watcher
+              image: "{{ .Values.watcherImage.repository }}:{{ .Values.watcherImage.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.watcherImage.pullPolicy }}
+              env:
+                - name: TARGET_NAMESPACE
+                  value: {{ .Values.env.watcher.targetNamespace | quote }}
+                - name: WATCHER_MODE
+                  value: {{ .Values.env.watcher.watcherMode | quote }}
+                - name: SQLITE_PATH
+                  value: {{ .Values.env.watcher.sqlitePath | quote }}
+                - name: HOME
+                  value: {{ .Values.env.watcher.home | quote }}
+                - name: AUTH_MODE
+                  value: "api-key"
+                - name: ANTHROPIC_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "clopus-watcher.secretName" . }}
+                      key: api-key
+              {{- if .Values.persistence.enabled }}
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+              {{- end }}
+              resources:
+                {{- toYaml .Values.cronJob.resources | nindent 16 }}
+          {{- if .Values.persistence.enabled }}
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: {{ include "clopus-watcher.pvcName" . }}
+          {{- end }}

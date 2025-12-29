@@ -1,0 +1,97 @@
+imagePullSecrets: []
+
+watcherImage:
+  repository: ghcr.io/kubeden/clopus-watcher
+  tag: ""
+  pullPolicy: Always
+
+dashboardImage:
+  repository: ghcr.io/kubeden/clopus-watcher-dashboard
+  tag: ""
+  pullPolicy: Always
+
+cronJob:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  ttlSecondsAfterFinished: 300
+  backoffLimit: 0
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  initContainers:
+    fixPermissions:
+      enabled: true
+      image: busybox
+      command:
+        - sh
+        - -c
+        - chmod -R 777 /data
+
+dashboard:
+  replicaCount: 1
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+    nodePort: null
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+    hosts:
+      - host: dashboard.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  livenessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+persistence:
+  enabled: true
+  existingClaim: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+  storageClass: "local-path"
+
+serviceAccount:
+  create: true
+  name: ""
+
+rbac:
+  create: true
+
+apiKeySecret:
+  create: true
+  name: claude-auth
+  apiKey: ""
+  existingSecret: ""
+
+env:
+  watcher:
+    targetNamespace: default
+    watcherMode: autonomous
+    sqlitePath: /data/watcher.db
+    home: /home/claude
+  dashboard:
+    sqlitePath: /data/watcher.db
+    port: "8080"
+    logPath: /data/watcher.log

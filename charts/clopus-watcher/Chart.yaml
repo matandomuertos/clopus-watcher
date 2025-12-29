@@ -1,0 +1,6 @@
+apiVersion: v2
+name: clopus-watcher
+description: Helm chart for deploying the Clopus watcher CronJob and dashboard
+type: application
+version: 0.0.1
+appVersion: "v0.0.1"

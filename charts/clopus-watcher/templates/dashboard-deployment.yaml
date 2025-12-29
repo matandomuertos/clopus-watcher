@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "clopus-watcher.fullname" . }}-dashboard
+  labels:
+    {{- include "clopus-watcher.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.dashboard.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "clopus-watcher.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: dashboard
+  template:
+    metadata:
+      labels:
+        {{- include "clopus-watcher.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: dashboard
+    spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+{{ toYaml .Values.imagePullSecrets | indent 8 }}
+      {{- end }}
+      containers:
+        - name: dashboard
+          image: "{{ .Values.dashboardImage.repository }}:{{ .Values.dashboardImage.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.dashboardImage.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.dashboard.service.targetPort }}
+              name: http
+          env:
+            - name: SQLITE_PATH
+              value: {{ .Values.env.dashboard.sqlitePath | quote }}
+            - name: PORT
+              value: {{ .Values.env.dashboard.port | quote }}
+            - name: LOG_PATH
+              value: {{ .Values.env.dashboard.logPath | quote }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- end }}
+          resources:
+            {{- toYaml .Values.dashboard.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.dashboard.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.dashboard.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: {{ .Values.dashboard.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.dashboard.readinessProbe.periodSeconds }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "clopus-watcher.pvcName" . }}
+      {{- end }}

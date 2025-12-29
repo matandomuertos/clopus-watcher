@@ -39,6 +39,44 @@ A separate Dashboard deployment provides a web UI to view all detected errors an
 
 ## Deployment
 
+### Helm (API Key only)
+
+```bash
+# 1. Install/upgrade via Helm (creates the claude-auth secret for you)
+helm upgrade --install clopus-watcher charts/clopus-watcher \
+  --namespace clopus-watcher --create-namespace \
+  --set apiKeySecret.apiKey=$ANTHROPIC_API_KEY \
+  --set watcherImage.repository=ghcr.io/<you>/clopus-watcher \
+  --set dashboardImage.repository=ghcr.io/<you>/clopus-watcher-dashboard
+
+# Optional: point at an existing secret instead of creating one
+#   --set apiKeySecret.create=false --set apiKeySecret.existingSecret=claude-auth
+```
+
+- The chart always configures `AUTH_MODE=api-key`, mounts the shared PVC, and deploys both the CronJob (watcher) and the dashboard with RBAC.
+- Override the image repositories/tags if you publish to GHCR under your own namespace.
+- If you already manage the `claude-auth` secret, disable secret creation and set `apiKeySecret.existingSecret` accordingly.
+- To reach the dashboard externally, either switch the service to NodePort (`--set dashboard.service.type=NodePort --set dashboard.service.nodePort=32080`) or enable the bundled ingress (`--set dashboard.ingress.enabled=true --set dashboard.ingress.hosts[0].host=watcher.example.com`).
+
+#### Installing straight from GHCR
+
+Each release publishes the chart to `oci://ghcr.io/<owner>/charts/clopus-watcher` with the same version number as the Git tag:
+
+```bash
+VERSION=0.4.0
+OWNER=<you>
+
+helm registry login ghcr.io -u <user> -p $GITHUB_TOKEN
+helm install clopus-watcher oci://ghcr.io/${OWNER}/charts/clopus-watcher \
+  --version ${VERSION} \
+  --namespace clopus-watcher --create-namespace \
+  --set apiKeySecret.apiKey=$ANTHROPIC_API_KEY \
+  --set watcherImage.repository=ghcr.io/${OWNER}/clopus-watcher \
+  --set dashboardImage.repository=ghcr.io/${OWNER}/clopus-watcher-dashboard
+```
+
+OCI charts behave like container images: you can `helm pull` + `helm install` or deploy directly as shown above.
+
 ### Option 1: API Key (Recommended)
 
 ```bash
@@ -81,7 +119,7 @@ kubectl create secret generic claude-credentials \
 
 - File: `.github/workflows/build-and-push.yaml`
 - Trigger: any Git tag push or manual `workflow_dispatch`
-- Action: builds both Dockerfiles with Buildx and publishes `clopus-watcher-dashboard` and `clopus-watcher` images to `ghcr.io/<owner>` using the tag name plus a `latest` tag.
+- Action: builds both Dockerfiles with Buildx, publishes `clopus-watcher-dashboard` and `clopus-watcher` images to `ghcr.io/<owner>` with the tag name plus `latest`, then packages the Helm chart and pushes it to `ghcr.io/<owner>/charts` as an OCI artifact using the same tag-derived version.
 
 ### PR Dockerfile Tests
 
